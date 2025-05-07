@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "PEM Inspector",
+  "version": "1.0",
+  "description": "Detects and parses X.509 or CSR PEM data on a webpage.",
+  "icons": {
+    "48": "logo.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "contextMenus"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PEM Inspector",
+    "default_icon": {
+      "48": "logo.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ]
+}

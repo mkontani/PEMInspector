@@ -1,0 +1,21 @@
+{
+  "name": "pem-inspetor",
+  "version": "1.0.0",
+  "description": "Detects and parses X.509 or CSR PEM data on a webpage.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "pem",
+    "x509",
+    "csr",
+    "parser",
+    "chrome-extension"
+  ],
+  "author": "mkontani",
+  "license": "ISC",
+  "dependencies": {
+    "jsrsasign": "^11.1.0"
+  }
+}
