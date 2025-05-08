@@ -1,6 +1,6 @@
 {
   "name": "pem-inspetor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Parses and inspects X.509 or CSR PEM data on a webpage.",
   "main": "background.js",
   "scripts": {
