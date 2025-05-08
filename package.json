@@ -1,10 +1,11 @@
 {
   "name": "pem-inspetor",
   "version": "1.0.0",
-  "description": "Detects and parses X.509 or CSR PEM data on a webpage.",
+  "description": "Parses and inspects X.509 or CSR PEM data on a webpage.",
   "main": "background.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "browserify node_modules/jsrsasign/lib/jsrsasign.js -o jsrsasign.js -s jsrsasign"
   },
   "keywords": [
     "pem",

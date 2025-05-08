@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PEM Inspector",
   "version": "1.0",
-  "description": "Detects and parses X.509 or CSR PEM data on a webpage.",
+  "description": "Parses and inspects X.509 or CSR PEM data on a webpage.",
   "icons": {
     "48": "imgs/logo.png"
   },
