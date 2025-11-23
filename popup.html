@@ -235,6 +235,197 @@
         margin-bottom: 15px;
         text-align: center;
       }
+      
+      /* Copy button styles */
+      .field-value-container {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        position: relative;
+      }
+      
+      .field-value {
+        flex: 1;
+      }
+      
+      .copy-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        opacity: 0.7;
+      }
+      
+      .copy-btn:hover {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+      
+      .copy-btn.copied {
+        background: #28a745;
+      }
+      
+      /* Expiry status styles */
+      .expiry-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .expiry-date {
+        font-family: 'Courier New', monospace;
+      }
+      
+      .expiry-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        width: fit-content;
+      }
+      
+      .status-icon {
+        font-size: 14px;
+      }
+      
+      .status-valid {
+        background: #d4edda;
+        color: #155724;
+      }
+      
+      .status-caution {
+        background: #fff3cd;
+        color: #856404;
+      }
+      
+      .status-warning {
+        background: #ffe5b4;
+        color: #cc6600;
+      }
+      
+      .status-expired {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      
+      .status-days {
+        font-weight: 400;
+        opacity: 0.9;
+      }
+      
+      /* Dark mode support */
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+          color: #e2e8f0;
+        }
+        
+        .container {
+          background: #1a202c;
+        }
+        
+        .header {
+          background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        }
+        
+        .file-upload {
+          background: #2d3748;
+          border-color: #4a5568;
+        }
+        
+        .file-upload:hover {
+          background: #374151;
+          border-color: #667eea;
+        }
+        
+        .file-upload.drag-over {
+          background: #374151;
+        }
+        
+        .file-upload label {
+          color: #a0aec0;
+        }
+        
+        #pemData {
+          background: #1a202c;
+        }
+        
+        .info-table {
+          background: #2d3748;
+        }
+        
+        .info-table tr {
+          border-bottom: 1px solid #4a5568;
+        }
+        
+        .info-table tr:nth-child(even) {
+          background: #374151;
+        }
+        
+        .info-table tr:hover {
+          background: #3d4a5e;
+        }
+        
+        .info-table td:first-child {
+          color: #cbd5e0;
+          border-right: 2px solid #4a5568;
+        }
+        
+        .info-table td:last-child {
+          color: #e2e8f0;
+        }
+        
+        .san-list li {
+          background: #2d3748;
+          border-left: 3px solid #667eea;
+        }
+        
+        .no-data {
+          color: #a0aec0;
+        }
+        
+        .copy-btn {
+          background: #4a5568;
+        }
+        
+        .copy-btn:hover {
+          background: #667eea;
+        }
+        
+        .expiry-status.status-valid {
+          background: #22543d;
+          color: #9ae6b4;
+        }
+        
+        .expiry-status.status-caution {
+          background: #744210;
+          color: #fbd38d;
+        }
+        
+        .expiry-status.status-warning {
+          background: #7c2d12;
+          color: #fed7aa;
+        }
+        
+        .expiry-status.status-expired {
+          background: #742a2a;
+          color: #feb2b2;
+        }
+        
+        .error-message {
+          background: #742a2a;
+          color: #feb2b2;
+          border-left: 4px solid #fc8181;
+        }
+      }
     </style>
   </head>
   <body>

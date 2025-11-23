@@ -3,6 +3,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const pemDataElement = document.getElementById('pemData');
   const fileUploadArea = document.querySelector('.file-upload');
 
+  // Calculate expiry status and days remaining
+  const calculateExpiryStatus = (notAfterStr) => {
+    if (!notAfterStr) return null;
+    
+    // Parse the formatted date string (YYYY-MM-DD HH:MM:SS)
+    const parts = notAfterStr.split(' ');
+    const dateParts = parts[0].split('-');
+    const timeParts = parts[1] ? parts[1].split(':') : ['00', '00', '00'];
+    
+    const expiryDate = new Date(
+      parseInt(dateParts[0]),
+      parseInt(dateParts[1]) - 1,
+      parseInt(dateParts[2]),
+      parseInt(timeParts[0]),
+      parseInt(timeParts[1]),
+      parseInt(timeParts[2])
+    );
+    
+    const today = new Date();
+    const diffTime = expiryDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let statusClass = 'status-valid';
+    let statusText = '有効';
+    let statusIcon = '✓';
+    
+    if (diffDays < 0) {
+      statusClass = 'status-expired';
+      statusText = '期限切れ';
+      statusIcon = '✗';
+    } else if (diffDays < 30) {
+      statusClass = 'status-warning';
+      statusText = 'まもなく期限切れ';
+      statusIcon = '⚠';
+    } else if (diffDays < 90) {
+      statusClass = 'status-caution';
+      statusText = '要注意';
+      statusIcon = '⚡';
+    }
+    
+    return { diffDays, statusClass, statusText, statusIcon };
+  };
+
   // Format a date string into "YYYY-MM-DD HH:MM:SS" format.
   const formatDate = (dateStr) => {
     if (!dateStr) return dateStr;
@@ -88,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const key of fieldOrder) {
       if (parsedData.hasOwnProperty(key) && parsedData[key] !== null && parsedData[key] !== undefined) {
         let value = parsedData[key];
+        let copyValue = value; // Store original value for copying
         
         // Format specific fields
         if (key === 'version') {
@@ -97,6 +141,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (key === 'serialNumber') {
           // Format hex with colons
           value = value.match(/.{2}/g)?.join(':').toUpperCase() || value;
+          copyValue = value;
+        } else if (key === 'notAfter') {
+          // Add expiry status indicator
+          const expiryStatus = calculateExpiryStatus(value);
+          if (expiryStatus) {
+            value = `
+              <div class="expiry-container">
+                <span class="expiry-date">${value}</span>
+                <span class="expiry-status ${expiryStatus.statusClass}">
+                  <span class="status-icon">${expiryStatus.statusIcon}</span>
+                  <span class="status-text">${expiryStatus.statusText}</span>
+                  ${expiryStatus.diffDays >= 0 ? `<span class="status-days">(${expiryStatus.diffDays}日)</span>` : ''}
+                </span>
+              </div>
+            `;
+          }
         } else if (key === 'subjectAltNames') {
           // If already HTML, use as-is; otherwise format as list
           if (typeof value === 'string' && value.includes('<ul>')) {
@@ -117,15 +177,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         html += `
-          <tr>
+          <tr data-copy-value="${encodeURIComponent(String(copyValue).replace(/<[^>]*>/g, ''))}">
             <td>${fieldLabels[key] || key}</td>
-            <td>${value}</td>
+            <td>
+              <div class="field-value-container">
+                <div class="field-value">${value}</div>
+                <button class="copy-btn" title="コピー">📋</button>
+              </div>
+            </td>
           </tr>
         `;
       }
     }
     
     html += '</table>';
+    
+    // Add copy button event listeners after DOM is updated
+    setTimeout(() => {
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const row = btn.closest('tr');
+          const copyValue = decodeURIComponent(row.dataset.copyValue);
+          
+          navigator.clipboard.writeText(copyValue).then(() => {
+            // Visual feedback
+            const originalText = btn.textContent;
+            btn.textContent = '✓';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.classList.remove('copied');
+            }, 1500);
+          }).catch(err => {
+            console.error('Failed to copy:', err);
+            btn.textContent = '✗';
+            setTimeout(() => {
+              btn.textContent = '📋';
+            }, 1500);
+          });
+        });
+      });
+    }, 0);
+    
     return html;
   };
 
@@ -187,14 +282,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const sans = cert.getExtSubjectAltName();
         if (sans) {
           if (typeof sans === "object" && sans.array) {
-            let sanOutput = "<ul>";
-            sans.array.forEach(item => {
-              sanOutput += `<li>${JSON.stringify(item, null, 2)}</li>`;
+            const formattedSans = sans.array.map(item => {
+              if (item.dns) {
+                return `DNS: ${item.dns}`;
+              } else if (item.rfc822) {
+                return `Email: ${item.rfc822}`;
+              } else if (item.uri) {
+                return `URI: ${item.uri}`;
+              } else if (item.ip) {
+                return `IP: ${item.ip}`;
+              } else if (item.dn) {
+                return `DN: ${item.dn}`;
+              } else {
+                // Fallback for unknown types
+                const type = Object.keys(item)[0];
+                return `${type.toUpperCase()}: ${item[type]}`;
+              }
             });
-            sanOutput += "</ul>";
-            parsedData.subjectAltNames = sanOutput;
+            parsedData.subjectAltNames = formattedSans.join(", ");
           } else if (Array.isArray(sans)) {
-            parsedData.subjectAltNames = `<ul><li>${sans.join(", ")}</li></ul>`;
+            parsedData.subjectAltNames = sans.join(", ");
           } else {
             parsedData.subjectAltNames = sans;
           }
