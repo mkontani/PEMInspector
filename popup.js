@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const pemFileElement = document.getElementById('pemFile');
   const pemDataElement = document.getElementById('pemData');
+  const fileUploadArea = document.querySelector('.file-upload');
 
   // Format a date string into "YYYY-MM-DD HH:MM:SS" format.
   const formatDate = (dateStr) => {
@@ -33,16 +34,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Generate HTML for displaying parsed PEM data.
   const generateDisplayHTML = (parsedData) => {
-    let html = '<h2>PEM Parsing Result</h2>';
     if (parsedData.error) {
-      html += `<p style="color:red;"><strong>Error:</strong> ${parsedData.error}</p>`;
-    } else {
-      html += '<ul>';
-      for (const key in parsedData) {
-        html += `<li><strong>${key}:</strong> ${parsedData[key]}</li>`;
-      }
-      html += '</ul>';
+      return `<div class="error-message"><strong>Error:</strong> ${parsedData.error}</div>`;
     }
+    
+    // Determine certificate type
+    let certType = 'Unknown';
+    let certTypeBadge = 'badge-info';
+    if (parsedData.subject && parsedData.issuer) {
+      certType = 'X.509 Certificate';
+      certTypeBadge = 'badge-success';
+    } else if (parsedData.type === 'Private Key') {
+      certType = 'Private Key';
+      certTypeBadge = 'badge-warning';
+    } else if (parsedData.subject && parsedData.signatureAlgorithm) {
+      certType = 'Certificate Signing Request (CSR)';
+      certTypeBadge = 'badge-info';
+    }
+    
+    let html = `
+      <div class="cert-type-badge">
+        <span class="badge ${certTypeBadge}">${certType}</span>
+      </div>
+      <div class="result-header">Certificate Details</div>
+      <table class="info-table">
+    `;
+    
+    // Define display order and labels
+    const fieldLabels = {
+      'subject': 'Subject',
+      'issuer': 'Issuer',
+      'version': 'Version',
+      'serialNumber': 'Serial Number',
+      'notBefore': 'Valid From',
+      'notAfter': 'Valid Until',
+      'publicKeyAlgorithm': 'Public Key Algorithm',
+      'publicKeyLength': 'Key Length (bits)',
+      'signatureAlgorithm': 'Signature Algorithm',
+      'hashAlgorithm': 'Hash Algorithm',
+      'keyUsage': 'Key Usage',
+      'extKeyUsage': 'Extended Key Usage',
+      'subjectAltNames': 'Subject Alternative Names',
+      'type': 'Type'
+    };
+    
+    const fieldOrder = [
+      'subject', 'issuer', 'version', 'serialNumber',
+      'notBefore', 'notAfter', 'publicKeyAlgorithm', 'publicKeyLength',
+      'signatureAlgorithm', 'hashAlgorithm', 'keyUsage', 'extKeyUsage',
+      'subjectAltNames', 'type'
+    ];
+    
+    for (const key of fieldOrder) {
+      if (parsedData.hasOwnProperty(key) && parsedData[key] !== null && parsedData[key] !== undefined) {
+        let value = parsedData[key];
+        
+        // Format specific fields
+        if (key === 'version') {
+          value = `v${value}`;
+        } else if (key === 'publicKeyLength') {
+          value = `${value} bits`;
+        } else if (key === 'serialNumber') {
+          // Format hex with colons
+          value = value.match(/.{2}/g)?.join(':').toUpperCase() || value;
+        } else if (key === 'subjectAltNames') {
+          // If already HTML, use as-is; otherwise format as list
+          if (typeof value === 'string' && value.includes('<ul>')) {
+            // Already formatted
+          } else if (typeof value === 'string') {
+            const sans = value.split(',').map(s => s.trim());
+            value = '<ul class="san-list">' + sans.map(san => `<li>${san}</li>`).join('') + '</ul>';
+          }
+        } else if (key === 'extKeyUsage') {
+          try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+              value = '<ul class="san-list">' + parsed.map(item => `<li>${item}</li>`).join('') + '</ul>';
+            }
+          } catch (e) {
+            // Keep as-is
+          }
+        }
+        
+        html += `
+          <tr>
+            <td>${fieldLabels[key] || key}</td>
+            <td>${value}</td>
+          </tr>
+        `;
+      }
+    }
+    
+    html += '</table>';
     return html;
   };
 
@@ -163,6 +246,42 @@ document.addEventListener('DOMContentLoaded', () => {
       reader.readAsText(file);
     }
   });
+
+  // Drag and drop event handlers
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, () => {
+      fileUploadArea.classList.add('drag-over');
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, () => {
+      fileUploadArea.classList.remove('drag-over');
+    }, false);
+  });
+
+  fileUploadArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        parseAndDisplayPEM(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+  }, false);
 
   // Listen for messages from the extension to parse PEM data.
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
