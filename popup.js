@@ -1,6 +1,50 @@
 document.addEventListener('DOMContentLoaded', () => {
   const pemFileElement = document.getElementById('pemFile');
   const pemDataElement = document.getElementById('pemData');
+  const fileUploadArea = document.querySelector('.file-upload');
+
+  // Calculate expiry status and days remaining
+  const calculateExpiryStatus = (notAfterStr) => {
+    if (!notAfterStr) return null;
+    
+    // Parse the formatted date string (YYYY-MM-DD HH:MM:SS)
+    const parts = notAfterStr.split(' ');
+    const dateParts = parts[0].split('-');
+    const timeParts = parts[1] ? parts[1].split(':') : ['00', '00', '00'];
+    
+    const expiryDate = new Date(
+      parseInt(dateParts[0]),
+      parseInt(dateParts[1]) - 1,
+      parseInt(dateParts[2]),
+      parseInt(timeParts[0]),
+      parseInt(timeParts[1]),
+      parseInt(timeParts[2])
+    );
+    
+    const today = new Date();
+    const diffTime = expiryDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let statusClass = 'status-valid';
+    let statusText = '有効';
+    let statusIcon = '✓';
+    
+    if (diffDays < 0) {
+      statusClass = 'status-expired';
+      statusText = '期限切れ';
+      statusIcon = '✗';
+    } else if (diffDays < 30) {
+      statusClass = 'status-warning';
+      statusText = 'まもなく期限切れ';
+      statusIcon = '⚠';
+    } else if (diffDays < 90) {
+      statusClass = 'status-caution';
+      statusText = '要注意';
+      statusIcon = '⚡';
+    }
+    
+    return { diffDays, statusClass, statusText, statusIcon };
+  };
 
   // Format a date string into "YYYY-MM-DD HH:MM:SS" format.
   const formatDate = (dateStr) => {
@@ -33,16 +77,150 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Generate HTML for displaying parsed PEM data.
   const generateDisplayHTML = (parsedData) => {
-    let html = '<h2>PEM Parsing Result</h2>';
     if (parsedData.error) {
-      html += `<p style="color:red;"><strong>Error:</strong> ${parsedData.error}</p>`;
-    } else {
-      html += '<ul>';
-      for (const key in parsedData) {
-        html += `<li><strong>${key}:</strong> ${parsedData[key]}</li>`;
-      }
-      html += '</ul>';
+      return `<div class="error-message"><strong>Error:</strong> ${parsedData.error}</div>`;
     }
+    
+    // Determine certificate type
+    let certType = 'Unknown';
+    let certTypeBadge = 'badge-info';
+    if (parsedData.subject && parsedData.issuer) {
+      certType = 'X.509 Certificate';
+      certTypeBadge = 'badge-success';
+    } else if (parsedData.type === 'Private Key') {
+      certType = 'Private Key';
+      certTypeBadge = 'badge-warning';
+    } else if (parsedData.subject && parsedData.signatureAlgorithm) {
+      certType = 'Certificate Signing Request (CSR)';
+      certTypeBadge = 'badge-info';
+    }
+    
+    let html = `
+      <div class="cert-type-badge">
+        <span class="badge ${certTypeBadge}">${certType}</span>
+      </div>
+      <div class="result-header">Certificate Details</div>
+      <table class="info-table">
+    `;
+    
+    // Define display order and labels
+    const fieldLabels = {
+      'subject': 'Subject',
+      'issuer': 'Issuer',
+      'version': 'Version',
+      'serialNumber': 'Serial Number',
+      'notBefore': 'Valid From',
+      'notAfter': 'Valid Until',
+      'publicKeyAlgorithm': 'Public Key Algorithm',
+      'publicKeyLength': 'Key Length (bits)',
+      'signatureAlgorithm': 'Signature Algorithm',
+      'hashAlgorithm': 'Hash Algorithm',
+      'keyUsage': 'Key Usage',
+      'extKeyUsage': 'Extended Key Usage',
+      'subjectAltNames': 'Subject Alternative Names',
+      'type': 'Type'
+    };
+    
+    const fieldOrder = [
+      'subject', 'issuer', 'version', 'serialNumber',
+      'notBefore', 'notAfter', 'publicKeyAlgorithm', 'publicKeyLength',
+      'signatureAlgorithm', 'hashAlgorithm', 'keyUsage', 'extKeyUsage',
+      'subjectAltNames', 'type'
+    ];
+    
+    for (const key of fieldOrder) {
+      if (parsedData.hasOwnProperty(key) && parsedData[key] !== null && parsedData[key] !== undefined) {
+        let value = parsedData[key];
+        let copyValue = value; // Store original value for copying
+        
+        // Format specific fields
+        if (key === 'version') {
+          value = `v${value}`;
+        } else if (key === 'publicKeyLength') {
+          value = `${value} bits`;
+        } else if (key === 'serialNumber') {
+          // Format hex with colons
+          value = value.match(/.{2}/g)?.join(':').toUpperCase() || value;
+          copyValue = value;
+        } else if (key === 'notAfter') {
+          // Add expiry status indicator
+          const expiryStatus = calculateExpiryStatus(value);
+          if (expiryStatus) {
+            value = `
+              <div class="expiry-container">
+                <span class="expiry-date">${value}</span>
+                <span class="expiry-status ${expiryStatus.statusClass}">
+                  <span class="status-icon">${expiryStatus.statusIcon}</span>
+                  <span class="status-text">${expiryStatus.statusText}</span>
+                  ${expiryStatus.diffDays >= 0 ? `<span class="status-days">(${expiryStatus.diffDays}日)</span>` : ''}
+                </span>
+              </div>
+            `;
+          }
+        } else if (key === 'subjectAltNames') {
+          // If already HTML, use as-is; otherwise format as list
+          if (typeof value === 'string' && value.includes('<ul>')) {
+            // Already formatted
+          } else if (typeof value === 'string') {
+            const sans = value.split(',').map(s => s.trim());
+            value = '<ul class="san-list">' + sans.map(san => `<li>${san}</li>`).join('') + '</ul>';
+          }
+        } else if (key === 'extKeyUsage') {
+          try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+              value = '<ul class="san-list">' + parsed.map(item => `<li>${item}</li>`).join('') + '</ul>';
+            }
+          } catch (e) {
+            // Keep as-is
+          }
+        }
+        
+        html += `
+          <tr data-copy-value="${encodeURIComponent(String(copyValue).replace(/<[^>]*>/g, ''))}">
+            <td>${fieldLabels[key] || key}</td>
+            <td>
+              <div class="field-value-container">
+                <div class="field-value">${value}</div>
+                <button class="copy-btn" title="コピー">📋</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+    }
+    
+    html += '</table>';
+    
+    // Add copy button event listeners after DOM is updated
+    setTimeout(() => {
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const row = btn.closest('tr');
+          const copyValue = decodeURIComponent(row.dataset.copyValue);
+          
+          navigator.clipboard.writeText(copyValue).then(() => {
+            // Visual feedback
+            const originalText = btn.textContent;
+            btn.textContent = '✓';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.classList.remove('copied');
+            }, 1500);
+          }).catch(err => {
+            console.error('Failed to copy:', err);
+            btn.textContent = '✗';
+            setTimeout(() => {
+              btn.textContent = '📋';
+            }, 1500);
+          });
+        });
+      });
+    }, 0);
+    
     return html;
   };
 
@@ -104,14 +282,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const sans = cert.getExtSubjectAltName();
         if (sans) {
           if (typeof sans === "object" && sans.array) {
-            let sanOutput = "<ul>";
-            sans.array.forEach(item => {
-              sanOutput += `<li>${JSON.stringify(item, null, 2)}</li>`;
+            const formattedSans = sans.array.map(item => {
+              if (item.dns) {
+                return `DNS: ${item.dns}`;
+              } else if (item.rfc822) {
+                return `Email: ${item.rfc822}`;
+              } else if (item.uri) {
+                return `URI: ${item.uri}`;
+              } else if (item.ip) {
+                return `IP: ${item.ip}`;
+              } else if (item.dn) {
+                return `DN: ${item.dn}`;
+              } else {
+                // Fallback for unknown types
+                const type = Object.keys(item)[0];
+                return `${type.toUpperCase()}: ${item[type]}`;
+              }
             });
-            sanOutput += "</ul>";
-            parsedData.subjectAltNames = sanOutput;
+            parsedData.subjectAltNames = formattedSans.join(", ");
           } else if (Array.isArray(sans)) {
-            parsedData.subjectAltNames = `<ul><li>${sans.join(", ")}</li></ul>`;
+            parsedData.subjectAltNames = sans.join(", ");
           } else {
             parsedData.subjectAltNames = sans;
           }
@@ -163,6 +353,42 @@ document.addEventListener('DOMContentLoaded', () => {
       reader.readAsText(file);
     }
   });
+
+  // Drag and drop event handlers
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, () => {
+      fileUploadArea.classList.add('drag-over');
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, () => {
+      fileUploadArea.classList.remove('drag-over');
+    }, false);
+  });
+
+  fileUploadArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        parseAndDisplayPEM(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+  }, false);
 
   // Listen for messages from the extension to parse PEM data.
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

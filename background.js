@@ -22,8 +22,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           {
             url: chrome.runtime.getURL("popup.html"),
             type: "popup",
-            width: 400,
-            height: 600
+            width: 850,
+            height: 700
           },
           () => {
             setTimeout(() => {
